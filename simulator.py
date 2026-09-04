@@ -1,9 +1,14 @@
 """
 Distributed Component High-Throughput Traffic & Stress Testing Simulator for Dic Istn Overt Score.
 """
+import os
 import time
 import random
 import sys
+
+# Ensure AUDIT_SECRET_KEY is set for simulator
+os.environ.setdefault("AUDIT_SECRET_KEY", "simulator-audit-key-2026")
+
 from agents.models import SystemTaskPayload
 from agents.supervisor import SystemSupervisor
 from agents.base import PHIGuard, SecurityException, AuditLogger

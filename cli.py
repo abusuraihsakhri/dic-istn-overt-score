@@ -7,6 +7,9 @@ Usage:
   python cli.py non-overt --platelets 90 --fibrin-marker moderate_increase --pt-prolongation 3 --fibrinogen 1.2 --platelet-trend falling
   python cli.py context --context sepsis --dic-score 6
   python cli.py batch -i input.csv -o results.csv
+  python cli.py audit --task-id TASK-001
+  python cli.py chat <query>
+  python cli.py verify-audit
 """
 import argparse
 import json
@@ -56,6 +59,17 @@ def main(argv=None):
     batch.add_argument("-i", "--input", required=True, help="Input CSV")
     batch.add_argument("-o", "--output", default="results.csv", help="Output CSV")
 
+    # Audit
+    audit_parser = subparsers.add_parser("audit", help="Run audit task evaluation")
+    audit_parser.add_argument("--task-id", required=True, help="Task identifier for audit")
+
+    # Chat
+    chat_parser = subparsers.add_parser("chat", help="Query the LLM reasoning adapter")
+    chat_parser.add_argument("query", nargs=argparse.REMAINDER, help="Query text for the LLM")
+
+    # Verify Audit
+    subparsers.add_parser("verify-audit", help="Verify HMAC audit trail integrity")
+
     args = parser.parse_args(argv)
 
     if args.command == "overt":
@@ -83,6 +97,36 @@ def main(argv=None):
     elif args.command == "batch":
         n = process_batch(args.input, args.output)
         print(f"Processed {n} records -> {args.output}")
+        return 0
+
+    elif args.command == "audit":
+        from agents.supervisor import SystemSupervisor
+        from agents.models import SystemTaskPayload
+        supervisor = SystemSupervisor(model_provider="mock")
+        payload = SystemTaskPayload(
+            task_id=args.task_id,
+            target_identifier="AUDIT-TASK",
+            primary_metric=12.0,
+            secondary_metric=4.0,
+            status_descriptor="NOMINAL",
+        )
+        dossier = supervisor.process_task(payload)
+        print(json.dumps(dossier.to_dict(), indent=2, default=str))
+        return 0
+
+    elif args.command == "chat":
+        from agents.supervisor import SystemSupervisor
+        supervisor = SystemSupervisor(model_provider="mock")
+        query = " ".join(args.query) if args.query else ""
+        response = supervisor.query_supervisory_chat(query)
+        print(json.dumps({"query": query, "response": response}, indent=2))
+        return 0
+
+    elif args.command == "verify-audit":
+        from agents.base import AuditLogger
+        valid = AuditLogger.verify_integrity()
+        trail_len = len(AuditLogger.get_trail())
+        print(json.dumps({"audit_valid": valid, "trail_length": trail_len}, indent=2))
         return 0
 
     return 0

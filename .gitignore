@@ -4,3 +4,12 @@ __pycache__/
 .pytest_cache/
 results.csv
 output.csv
+*.egg-info/
+dist/
+build/
+.env
+.venv/
+venv/
+.idea/
+.vscode/
+*.log

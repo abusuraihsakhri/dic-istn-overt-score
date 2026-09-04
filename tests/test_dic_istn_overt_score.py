@@ -3,8 +3,13 @@ Automated Pytest Test Suite for Dic Istn Overt Score.
 Domain: Clinical & Biomedical AI
 Standard: CAP / CLSI / ISO Standards
 """
+import os
 import sys
 from pathlib import Path
+
+# Set required environment variable for audit trail before importing agents
+os.environ.setdefault("AUDIT_SECRET_KEY", "test-secret-key-for-unit-tests-2026")
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pytest
@@ -63,3 +68,71 @@ def test_supervisor_consensus_and_audit():
     assert main(["audit", "--task-id", "CLI-TEST-01"]) == 0
     assert main(["chat", "Explain", "specifications"]) == 0
     assert main(["verify-audit"]) == 0
+
+
+def test_cli_audit_command():
+    """Test the audit CLI subcommand returns valid JSON output."""
+    from cli import main
+    ret = main(["audit", "--task-id", "TEST-AUDIT-01"])
+    assert ret == 0
+
+
+def test_cli_chat_command():
+    """Test the chat CLI subcommand processes queries."""
+    from cli import main
+    ret = main(["chat", "What", "is", "DIC"])
+    assert ret == 0
+
+
+def test_cli_verify_audit_command():
+    """Test the verify-audit CLI subcommand checks integrity."""
+    from cli import main
+    ret = main(["verify-audit"])
+    assert ret == 0
+
+
+def test_path_traversal_protection():
+    """Test that path traversal attempts are blocked in batch processing."""
+    from dic_istn import _validate_safe_path
+    import pytest
+
+    # Path traversal should be blocked
+    with pytest.raises(ValueError):
+        _validate_safe_path("../../../etc/passwd")
+
+    with pytest.raises(ValueError):
+        _validate_safe_path("/etc/passwd")
+
+    with pytest.raises(ValueError):
+        _validate_safe_path("\\windows\\system32\\config\\sam")
+
+    # Safe paths should work
+    safe = _validate_safe_path("data/input.csv")
+    assert safe.endswith("input.csv")
+
+
+def test_audit_trail_requires_secret_key():
+    """Test that AuditTrail requires a secret key."""
+    from agents.base import AuditTrail
+    import pytest
+
+    # Save and clear the env var
+    original_key = os.environ.pop("AUDIT_SECRET_KEY", None)
+    try:
+        with pytest.raises(RuntimeError):
+            AuditTrail()
+    finally:
+        # Restore the env var
+        if original_key:
+            os.environ["AUDIT_SECRET_KEY"] = original_key
+        else:
+            os.environ["AUDIT_SECRET_KEY"] = "test-secret-key-for-unit-tests-2026"
+
+
+def test_audit_trail_rejects_short_key():
+    """Test that AuditTrail rejects short secret keys."""
+    from agents.base import AuditTrail
+    import pytest
+
+    with pytest.raises(RuntimeError):
+        AuditTrail(secret_key="short")

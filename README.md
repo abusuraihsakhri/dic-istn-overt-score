@@ -94,14 +94,39 @@ Returns:
 
 ## 💻 CLI Quickstart & Usage
 
-### 1. Guided Interactive Mode
+### 1. Calculate Overt DIC Score
 ```bash
-python cli.py
+python cli.py overt --platelets 80 --fibrin-marker moderate_increase --pt-prolongation 4 --fibrinogen 1.5
 ```
 
-### 2. Direct Parameterized Evaluation
+### 2. Calculate Non-Overt DIC Score (with trends)
 ```bash
-python cli.py --platelets <value> --fibrin-marker <value> --pt-prolongation <value> --fibrinogen <value>
+python cli.py non-overt --platelets 90 --fibrin-marker moderate_increase --pt-prolongation 3 --fibrinogen 1.2 --platelet-trend falling
+```
+
+### 3. Get Clinical Context Guidance
+```bash
+python cli.py context --context sepsis --dic-score 6
+```
+
+### 4. Batch Process CSV
+```bash
+python cli.py batch -i input.csv -o results.csv
+```
+
+### 5. Audit Task Evaluation
+```bash
+python cli.py audit --task-id TASK-001
+```
+
+### 6. Query LLM Reasoning Adapter
+```bash
+python cli.py chat "Explain DIC scoring"
+```
+
+### 7. Verify Audit Trail Integrity
+```bash
+python cli.py verify-audit
 ```
 
 ### Parameter Reference
@@ -116,24 +141,43 @@ python cli.py --platelets <value> --fibrin-marker <value> --pt-prolongation <val
 - `--d-dimer-trend`: Specifies input measurement or parameter value.
 - `--input`: Specifies input measurement or parameter value.
 
-### Input Data Schema
+### Input Data Schema (Batch CSV)
 
 | Field | Description | Requirement |
 |:------|:------------|:------------|
-| `Patient_ID` | Parameter / observation metric | Required |
-| `v1` | Parameter / observation metric | Required |
-| `v2` | Parameter / observation metric | Required |
-| `v3` | Parameter / observation metric | Required |
+| `platelets` | Platelet count (×10³/µL) | Required |
+| `fibrin_marker` | Fibrin marker level: `no_increase`, `moderate_increase`, `strong_increase` (or numeric fold) | Required |
+| `pt_prolongation` | PT prolongation in seconds above normal | Required |
+| `fibrinogen` | Fibrinogen level (g/L) | Required |
+| `score_type` | `overt` or `non_overt` (default: `overt`) | Optional |
+| `platelet_trend` | `rising` or `falling` (for non-overt scoring) | Optional |
+| `fibrinogen_trend` | `rising` or `falling` (for non-overt scoring) | Optional |
+| `d_dimer_trend` | `rising` or `falling` (for non-overt scoring) | Optional |
 
 ---
 
 ## 🛡️ Security & Enterprise Architecture
 
-* **Zero-PHI Outbound Interceptor:** Active AST and regex inspection blocking SSNs, MRNs, phone numbers, and patient identifiers.
-* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation and state transition.
-* **Air-Gapped LLM Reasoning Adapter:** Agnostic integration for local Ollama instances (`llama3`, `mistral`), Claude 3.5 Sonnet, GPT-4o, and deterministic test mocks.
-* **Active Learning Bayesian Calibration:** Dynamic tracker updating worker reliability weights and monitoring Brier calibration drift.
-* **FastAPI & Prometheus Telemetry:** Exposes OpenAPI 3.1 REST endpoints and operational Prometheus metrics (`/metrics`).
+* **Zero-PHI Outbound Interceptor:** Active regex inspection blocking SSNs, MRNs, phone numbers, emails, DOB patterns, and patient identifiers.
+* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation and state transition. Requires `AUDIT_SECRET_KEY` environment variable (min 16 chars).
+* **Path Traversal Protection:** Batch CSV processing validates file paths to prevent directory traversal attacks.
+* **LLM Reasoning Adapter:** Deterministic mock implementation for clinical decision support queries.
+
+### Environment Variables
+
+| Variable | Required | Description |
+|:---------|:---------|:------------|
+| `AUDIT_SECRET_KEY` | Yes | HMAC secret key for audit trail (min 16 characters) |
+| `MODEL_PROVIDER` | No | LLM provider: `mock`, `ollama`, `claude`, `openai` (default: `mock`) |
+
+**Generate a secure key:**
+```bash
+# Linux/macOS
+export AUDIT_SECRET_KEY=$(openssl rand -hex 32)
+
+# Windows PowerShell
+$env:AUDIT_SECRET_KEY = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 32 | % {[char]$_})
+```
 
 ---
 
@@ -142,13 +186,21 @@ python cli.py --platelets <value> --fibrin-marker <value> --pt-prolongation <val
 Run the automated test suite:
 
 ```bash
+# Set test environment variable (tests configure this automatically)
 pytest -v
+```
+
+Run specific test modules:
+
+```bash
+pytest tests/ -v          # Integration tests (agents, CLI, security)
+pytest test_dic_istn.py -v  # Core scoring algorithm tests
 ```
 
 Execute high-throughput batch simulation benchmarks:
 
 ```bash
-python simulator.py --tasks 1000 --concurrency 8
+python simulator.py 100
 ```
 
 ---
@@ -157,5 +209,17 @@ python simulator.py --tasks 1000 --concurrency 8
 
 ```bash
 docker build -t dic-istn-overt-score .
-docker run -p 8000:8000 dic-istn-overt-score
+docker run -e AUDIT_SECRET_KEY=your-secure-key dic-istn-overt-score
+```
+
+With Docker Compose:
+
+```bash
+docker-compose up -d
+```
+
+**Note:** The default `AUDIT_SECRET_KEY` in Docker is for development only. Override it in production:
+
+```bash
+docker run -e AUDIT_SECRET_KEY=$(openssl rand -hex 32) dic-istn-overt-score
 ```

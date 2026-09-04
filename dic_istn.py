@@ -398,13 +398,32 @@ def assess_clinical_context(
 # Batch Processing
 # ---------------------------------------------------------------------------
 
+def _validate_safe_path(file_path: str) -> str:
+    """
+    Validate file path to prevent path traversal attacks.
+    Returns the resolved absolute path if safe, raises ValueError otherwise.
+    """
+    import pathlib
+    resolved = pathlib.Path(file_path).resolve()
+    # Check for path traversal attempts
+    if ".." in file_path or file_path.startswith("/") or file_path.startswith("\\"):
+        raise ValueError(f"Path traversal detected in: {file_path}")
+    return str(resolved)
+
+
 def process_batch(input_csv: str, output_csv: str) -> int:
     """
     Process a CSV of patient records and compute DIC scores.
 
     Expected columns: platelets, fibrin_marker, pt_prolongation, fibrinogen
     Optional: clinical_context, platelet_trend, fibrinogen_trend, d_dimer_trend, score_type
+
+    Security: Validates file paths to prevent directory traversal attacks.
     """
+    # Validate input/output paths for security
+    input_csv = _validate_safe_path(input_csv)
+    output_csv = _validate_safe_path(output_csv)
+
     with open(input_csv, mode="r", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         fieldnames = list(reader.fieldnames or [])
