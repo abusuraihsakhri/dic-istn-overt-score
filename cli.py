@@ -34,7 +34,7 @@ def main(argv=None):
     overt = subparsers.add_parser("overt", help="Calculate ISTH Overt DIC Score")
     overt.add_argument("--platelets", type=float, required=True, help="Platelet count (×10³/µL)")
     overt.add_argument("--fibrin-marker", required=True,
-                       help="Fibrin marker: no_increase, moderate_increase, strong_increase (or numeric fold)")
+                       help="Fibrin marker: no_increase, moderate_increase, strong_increase (using assay-specific interpretation)")
     overt.add_argument("--pt-prolongation", type=float, required=True, help="PT prolongation (seconds above normal)")
     overt.add_argument("--fibrinogen", type=float, required=True, help="Fibrinogen (g/L)")
 
