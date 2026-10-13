@@ -288,6 +288,17 @@ class TestBatchSafety(unittest.TestCase):
                 text = f.read()
             self.assertIn("'=HYPERLINK", text)
 
+    def test_extra_csv_columns_do_not_crash_export(self):
+        from dic_istn import process_batch
+        with tempfile.TemporaryDirectory() as tmp:
+            inp, out = os.path.join(tmp, "in.csv"), os.path.join(tmp, "out.csv")
+            with open(inp, "w") as f:
+                f.write("platelets,fibrin_marker,pt_prolongation,fibrinogen\n")
+                f.write("80,moderate_increase,4,1.5,UNEXPECTED\n")
+            self.assertEqual(process_batch(inp, out), 1)
+            with open(out) as f:
+                self.assertIn("ERROR", f.read())
+
     def test_invalid_row_is_marked_error(self):
         from dic_istn import process_batch
         with tempfile.TemporaryDirectory() as tmp:
