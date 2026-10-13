@@ -23,7 +23,7 @@ class TestScorePlatelets(unittest.TestCase):
         self.assertEqual(score_platelets(101), 0)
 
     def test_50_to_100(self):
-        self.assertEqual(score_platelets(100), 1)
+        self.assertEqual(score_platelets(100), 0)
         self.assertEqual(score_platelets(75), 1)
         self.assertEqual(score_platelets(50), 1)
 
@@ -47,18 +47,17 @@ class TestScoreFibrinMarker(unittest.TestCase):
     def test_moderate_increase(self):
         self.assertEqual(score_fibrin_marker("moderate_increase"), 2)
         self.assertEqual(score_fibrin_marker("moderate"), 2)
-        self.assertEqual(score_fibrin_marker("positive"), 2)
+        self.assertEqual(score_fibrin_marker("moderate"), 2)
 
     def test_strong_increase(self):
         self.assertEqual(score_fibrin_marker("strong_increase"), 3)
         self.assertEqual(score_fibrin_marker("strong"), 3)
         self.assertEqual(score_fibrin_marker("marked"), 3)
 
-    def test_numeric_fold(self):
-        self.assertEqual(score_fibrin_marker("1.5"), 0)
-        self.assertEqual(score_fibrin_marker("2.0"), 2)
-        self.assertEqual(score_fibrin_marker("3.5"), 2)
-        self.assertEqual(score_fibrin_marker("5.0"), 3)
+    def test_numeric_fold_is_rejected_without_assay_calibration(self):
+        for value in ("1.5", "2.0", "3.5", "5.0", "nan", "inf", "positive"):
+            with self.assertRaises(ValueError):
+                score_fibrin_marker(value)
 
     def test_unknown_raises(self):
         with self.assertRaises(ValueError):
@@ -73,9 +72,10 @@ class TestScorePTProlongation(unittest.TestCase):
     def test_3_to_6(self):
         self.assertEqual(score_pt_prolongation(3.0), 1)
         self.assertEqual(score_pt_prolongation(4.5), 1)
-        self.assertEqual(score_pt_prolongation(6.0), 1)
+        self.assertEqual(score_pt_prolongation(5.999), 1)
 
     def test_above_6(self):
+        self.assertEqual(score_pt_prolongation(6.0), 2)
         self.assertEqual(score_pt_prolongation(6.1), 2)
         self.assertEqual(score_pt_prolongation(10.0), 2)
 
@@ -86,16 +86,37 @@ class TestScorePTProlongation(unittest.TestCase):
 
 class TestScoreFibrinogen(unittest.TestCase):
     def test_above_1(self):
+        self.assertEqual(score_fibrinogen(1.0), 0)
         self.assertEqual(score_fibrinogen(1.5), 0)
         self.assertEqual(score_fibrinogen(2.0), 0)
 
     def test_at_or_below_1(self):
-        self.assertEqual(score_fibrinogen(1.0), 1)
+        self.assertEqual(score_fibrinogen(0.999), 1)
         self.assertEqual(score_fibrinogen(0.5), 1)
 
     def test_negative_raises(self):
         with self.assertRaises(ValueError):
             score_fibrinogen(-1)
+
+
+class TestClinicalThresholdBoundaries(unittest.TestCase):
+    def test_platelets_at_100(self):
+        self.assertEqual(score_platelets(100), 0)
+        self.assertEqual(score_platelets(99.999), 1)
+
+    def test_pt_at_six_seconds(self):
+        self.assertEqual(score_pt_prolongation(6), 2)
+        self.assertEqual(score_pt_prolongation(5.999), 1)
+
+    def test_fibrinogen_at_one(self):
+        self.assertEqual(score_fibrinogen(1.0), 0)
+        self.assertEqual(score_fibrinogen(0.999), 1)
+
+    def test_non_finite_values_are_rejected(self):
+        for score_fn in (score_platelets, score_pt_prolongation, score_fibrinogen):
+            for value in (float("nan"), float("inf"), -float("inf")):
+                with self.assertRaises(ValueError):
+                    score_fn(value)
 
 
 class TestOvertDICScore(unittest.TestCase):
@@ -237,6 +258,46 @@ class TestProcessBatch(unittest.TestCase):
                 f.write("80,moderate_increase,3.0,1.5,non_overt,falling\n")
             n = process_batch(inp, out)
             self.assertEqual(n, 1)
+
+
+class TestBatchSafety(unittest.TestCase):
+    def test_required_columns(self):
+        from dic_istn import process_batch
+        with tempfile.TemporaryDirectory() as tmp:
+            inp, out = os.path.join(tmp, "in.csv"), os.path.join(tmp, "out.csv")
+            with open(inp, "w") as f:
+                f.write("platelets,pt_prolongation\n20,4\n")
+            with self.assertRaisesRegex(ValueError, "Missing required"):
+                process_batch(inp, out)
+
+    def test_absolute_paths_allowed(self):
+        from dic_istn import _validate_safe_path
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(_validate_safe_path(os.path.join(tmp, "input.csv")),
+                             os.path.join(tmp, "input.csv"))
+
+    def test_csv_formula_injection_is_escaped(self):
+        from dic_istn import process_batch
+        with tempfile.TemporaryDirectory() as tmp:
+            inp, out = os.path.join(tmp, "in.csv"), os.path.join(tmp, "out.csv")
+            with open(inp, "w") as f:
+                f.write("platelets,fibrin_marker,pt_prolongation,fibrinogen,notes\n")
+                f.write("120,no_increase,0,2,=HYPERLINK(\"bad\")\n")
+            process_batch(inp, out)
+            with open(out) as f:
+                text = f.read()
+            self.assertIn("'=HYPERLINK", text)
+
+    def test_invalid_row_is_marked_error(self):
+        from dic_istn import process_batch
+        with tempfile.TemporaryDirectory() as tmp:
+            inp, out = os.path.join(tmp, "in.csv"), os.path.join(tmp, "out.csv")
+            with open(inp, "w") as f:
+                f.write("platelets,fibrin_marker,pt_prolongation,fibrinogen\n")
+                f.write(",moderate_increase,3,1.5\n")
+            process_batch(inp, out)
+            with open(out) as f:
+                self.assertIn("ERROR", f.read())
 
 
 class TestCLI(unittest.TestCase):
