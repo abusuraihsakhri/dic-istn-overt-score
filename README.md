@@ -1,5 +1,7 @@
 # ISTH Overt DIC Score Calculator
 
+### [Open the Live Application →](https://abusuraihsakhri.github.io/dic-istn-overt-score/)
+
 A deterministic calculator for the **classic categorical International Society on Thrombosis and Haemostasis (ISTH) overt disseminated intravascular coagulation (DIC) score**. It includes an offline browser interface, a standard-library Python calculator and CSV/CLI tools.
 
 > **Clinical scope:** Educational and research use. Apply the overt-DIC score only in patients with a relevant underlying clinical condition. A score is not a standalone diagnosis and a value below 5 does not exclude evolving DIC. This implementation uses the classic categorical fibrin-marker classification; it does **not** implement the numeric D-dimer categories introduced in the 2025 ISTH update.
