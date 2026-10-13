@@ -147,3 +147,16 @@ def test_audit_integrity_checks_signatures():
     assert audit.verify_integrity()
     audit.logs[0]["event_type"] = "EDIT"
     assert not audit.verify_integrity()
+
+def test_audit_log_api_requires_explicit_access_token(monkeypatch):
+    from agents.api import api_audit_logs
+    from fastapi import HTTPException
+    monkeypatch.delenv("AUDIT_READ_TOKEN", raising=False)
+    with pytest.raises(HTTPException) as exc:
+        api_audit_logs(authorization=None)
+    assert exc.value.status_code == 403
+    monkeypatch.setenv("AUDIT_READ_TOKEN", "test-read-access-token")
+    with pytest.raises(HTTPException):
+        api_audit_logs(authorization="Bearer wrong")
+    result = api_audit_logs(authorization="Bearer test-read-access-token")
+    assert result["verified"] is True
