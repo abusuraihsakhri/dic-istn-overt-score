@@ -136,3 +136,14 @@ def test_audit_trail_rejects_short_key():
 
     with pytest.raises(RuntimeError):
         AuditTrail(secret_key="short")
+
+def test_audit_integrity_checks_signatures():
+    from agents.base import AuditTrail
+    audit = AuditTrail(secret_key="test-key-12345678901234567890")
+    audit.log("test", "unit", "FIRST", {"result": "ok"})
+    assert audit.verify_integrity()
+    snapshot = audit.get_trail()
+    snapshot[0]["event_type"] = "EDIT"
+    assert audit.verify_integrity()
+    audit.logs[0]["event_type"] = "EDIT"
+    assert not audit.verify_integrity()
