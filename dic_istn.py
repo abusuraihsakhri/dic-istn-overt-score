@@ -404,7 +404,7 @@ def _validate_safe_path(file_path: str) -> str:
     if not isinstance(file_path, str) or not file_path.strip():
         raise ValueError("CSV path must be a nonempty string")
     if ".." in pathlib.PurePath(file_path).parts or (
-        "\\\\" in file_path or pathlib.PureWindowsPath(file_path).drive
+        chr(92) in file_path or pathlib.PureWindowsPath(file_path).drive
     ):
         raise ValueError(f"Parent traversal or Windows network/drive path not supported: {file_path}")
     return str(pathlib.Path(file_path).resolve())
