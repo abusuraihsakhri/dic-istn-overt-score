@@ -29,6 +29,7 @@ form.addEventListener("submit", (event) => {
     for (const [key, value] of Object.entries(assessment.components)) {
       document.getElementById("point-" + key).textContent = value + " point" + (value === 1 ? "" : "s");
     }
+    document.getElementById("placeholder").hidden = true;
     result.hidden = false;
     result.classList.toggle("positive", assessment.compatible);
     exportText = [
@@ -46,6 +47,7 @@ form.addEventListener("submit", (event) => {
     setStatus("Calculated locally in your browser; no data sent to a server.", false);
   } catch (error) {
     result.hidden = true;
+    document.getElementById("placeholder").hidden = false;
     setStatus(error.message, true);
   }
 });
