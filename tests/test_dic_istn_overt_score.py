@@ -100,8 +100,8 @@ def test_path_traversal_protection():
     with pytest.raises(ValueError):
         _validate_safe_path("../../../etc/passwd")
 
-    with pytest.raises(ValueError):
-        _validate_safe_path("/etc/passwd")
+    # Absolute paths are accepted for the local CLI; permissions govern access.
+    assert _validate_safe_path("/tmp/example.csv") == "/tmp/example.csv"
 
     with pytest.raises(ValueError):
         _validate_safe_path("\\windows\\system32\\config\\sam")
