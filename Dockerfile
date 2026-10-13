@@ -5,18 +5,14 @@ WORKDIR /app
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-# Set a default AUDIT_SECRET_KEY for container (override in production)
-ENV AUDIT_SECRET_KEY=change-me-in-production-use-openssl-rand-hex-32
-
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
-RUN pip install --no-cache-dir pydantic pytest
+RUN pip install --no-cache-dir 'fastapi>=0.111,<1' 'uvicorn>=0.30,<1' 'pydantic>=2,<3'
 
 COPY . .
 
-# Default command runs the CLI in overt mode with example values
-# Override with: docker run dic-istn-overt-score python cli.py <command>
-CMD ["python", "cli.py", "overt", "--platelets", "80", "--fibrin-marker", "moderate_increase", "--pt-prolongation", "4", "--fibrinogen", "1.5"]
+# Default to the HTTP service; use python cli.py ... to run a scoring command.
+CMD ["uvicorn", "agents.api:app", "--host", "0.0.0.0", "--port", "8000"]
