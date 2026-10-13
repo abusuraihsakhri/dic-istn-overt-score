@@ -447,6 +447,8 @@ def process_batch(input_csv: str, output_csv: str) -> int:
 
     for r in rows:
         try:
+            if None in r:
+                raise ValueError("Unexpected extra CSV columns in row")
             platelets = float(r["platelets"])
             fibrin_marker = r["fibrin_marker"]
             pt_prolong = float(r["pt_prolongation"])
@@ -467,13 +469,13 @@ def process_batch(input_csv: str, output_csv: str) -> int:
                     platelets, fibrin_marker, pt_prolong, fibrinogen,
                 )
 
-            row_dict = dict(r)
+            row_dict = {key: value for key, value in r.items() if key is not None}
             row_dict["dic_total_score"] = result["total_score"]
             row_dict["dic_interpretation"] = result["interpretation"]
             row_dict["overt_dic"] = result.get("overt_dic", result.get("dic_suggested", False))
             row_dict["recommendation"] = result["recommendation"]
         except (ValueError, KeyError, TypeError) as e:
-            row_dict = dict(r)
+            row_dict = {key: value for key, value in r.items() if key is not None}
             row_dict["dic_total_score"] = f"ERROR: {e}"
             row_dict["dic_interpretation"] = "ERROR"
             row_dict["overt_dic"] = ""
