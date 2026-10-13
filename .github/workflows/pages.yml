@@ -37,3 +37,18 @@ jobs:
       - name: Deploy Pages
         id: deployment
         uses: actions/deploy-pages@v4
+      - name: Verify publicly served application
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          set -euo pipefail
+          base="${PAGE_URL%/}"
+          curl -fsSL --retry 10 --retry-delay 3 --retry-all-errors "$base/" -o /tmp/dic-index.html
+          grep -q 'ISTH Overt DIC Score' /tmp/dic-index.html
+          curl -fsSL --retry 10 --retry-delay 3 --retry-all-errors "$base/scoring.js" -o /tmp/dic-scoring.js
+          grep -q 'calculateOvertDIC' /tmp/dic-scoring.js
+          curl -fsSL --retry 10 --retry-delay 3 --retry-all-errors "$base/app.js" -o /tmp/dic-app.js
+          grep -q 'dic-form' /tmp/dic-app.js
+          curl -fsSL --retry 10 --retry-delay 3 --retry-all-errors "$base/style.css" -o /tmp/dic-style.css
+          grep -q 'grid-template-columns' /tmp/dic-style.css
+          echo "Deployed HTML, scoring, app and CSS assets are reachable."
