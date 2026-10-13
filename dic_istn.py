@@ -4,19 +4,19 @@ ISTH DIC (Disseminated Intravascular Coagulation) Score Calculator.
 
 Implements:
   - ISTH Overt DIC Score (acute DIC)
-  - ISTH Non-Overt DIC Score (chronic/subclinical DIC)
+  - Exploratory, non-validated non-overt DIC trend score
 
 Overt DIC Scoring System (ISTH):
-  Platelets (×10³/µL):  >100 → 0,  50-100 → 1,  <50 → 2
+  Platelets (×10³/µL):  ≥100 → 0,  50-<100 → 1,  <50 → 2
   Fibrin marker (D-dimer/FDP):  No increase → 0,  Moderate increase → 2,  Strong increase → 3
-  Prolonged PT (seconds above normal):  <3s → 0,  3-6s → 1,  >6s → 2
-  Fibrinogen (g/L):  >1.0 → 0,  ≤1.0 → 1
+  Prolonged PT (seconds above normal):  <3s → 0,  3-<6s → 1,  ≥6s → 2
+  Fibrinogen (g/L):  ≥1.0 → 0,  <1.0 → 1
 
   Total ≥ 5: Compatible with overt DIC
   Total < 5: Not suggestive of overt DIC
 
-Non-Overt DIC Scoring (chronic):
-  Uses same parameters plus dynamic changes over time.
+Exploratory non-overt trend scoring:
+  Retained for compatibility; NOT the published ISTH non-overt DIC template.
 
 Clinical contexts: sepsis, trauma, obstetric emergencies, malignancy, snakebite.
 
@@ -28,6 +28,7 @@ License: MIT
 import argparse
 import csv
 import json
+import math
 import sys
 from typing import Dict, Any, List, Optional
 
@@ -36,17 +37,22 @@ from typing import Dict, Any, List, Optional
 # Overt DIC Score
 # ---------------------------------------------------------------------------
 
+def _check_nonnegative_finite(value: float, label: str) -> None:
+    """Reject nonsensical measurements, including NaN and infinity."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
+        raise ValueError(f"{label} must be a finite non-negative number, got {value!r}")
+
+
 def score_platelets(platelets: float) -> int:
     """
     Score platelet count for ISTH Overt DIC.
     Platelets in ×10³/µL.
-      >100: 0 points
-      50-100: 1 point
+      ≥100: 0 points
+      50-<100: 1 point
       <50: 2 points
     """
-    if platelets < 0:
-        raise ValueError(f"Platelets must be non-negative, got {platelets}")
-    if platelets > 100:
+    _check_nonnegative_finite(platelets, "Platelets")
+    if platelets >= 100:
         return 0
     elif platelets >= 50:
         return 1
@@ -55,14 +61,14 @@ def score_platelets(platelets: float) -> int:
 
 
 def score_fibrin_marker(marker_level: str) -> int:
+    """Score assay-interpreted fibrin markers; no universal D-dimer fold cutoff exists.
+
+    The calling laboratory must establish what counts as moderately or strongly
+    increased for its particular D-dimer/FDP assay and units. Numeric folds are
+    deliberately rejected instead of using unsupported universal thresholds.
     """
-    Score fibrin degradation marker (D-dimer or FDP).
-    Accepts: 'no_increase', 'moderate_increase', 'strong_increase'
-    Or numeric fold-increase thresholds:
-      No increase: <2× upper normal
-      Moderate: 2-4× upper normal
-      Strong: >4× upper normal
-    """
+    if not isinstance(marker_level, str):
+        raise ValueError("Fibrin marker category must be a string")
     level = marker_level.strip().lower().replace(" ", "_").replace("-", "_")
     mapping = {
         "no_increase": 0,
@@ -71,43 +77,30 @@ def score_fibrin_marker(marker_level: str) -> int:
         "negative": 0,
         "moderate_increase": 2,
         "moderate": 2,
-        "positive": 2,
         "strong_increase": 3,
         "strong": 3,
         "marked": 3,
         "highly_positive": 3,
     }
-    if level in mapping:
-        return mapping[level]
-
-    # Try numeric interpretation (fold-increase above upper normal)
-    try:
-        fold = float(marker_level)
-        if fold < 2:
-            return 0
-        elif fold <= 4:
-            return 2
-        else:
-            return 3
-    except ValueError:
+    if level not in mapping:
         raise ValueError(
-            f"Unknown fibrin marker level: '{marker_level}'. "
-            f"Use: no_increase, moderate_increase, strong_increase, or a numeric fold-increase."
+            "Fibrin marker must be no_increase, moderate_increase, or strong_increase "
+            "using lab-validated assay interpretation; numeric folds and ambiguous "
+            "positive results cannot be scored automatically"
         )
-
+    return mapping[level]
 
 def score_pt_prolongation(pt_prolongation_seconds: float) -> int:
     """
     Score PT prolongation (seconds above upper limit of normal).
       <3s: 0 points
-      3-6s: 1 point
-      >6s: 2 points
+      3-<6s: 1 point
+      ≥6s: 2 points
     """
-    if pt_prolongation_seconds < 0:
-        raise ValueError(f"PT prolongation must be non-negative, got {pt_prolongation_seconds}")
+    _check_nonnegative_finite(pt_prolongation_seconds, "PT prolongation")
     if pt_prolongation_seconds < 3:
         return 0
-    elif pt_prolongation_seconds <= 6:
+    elif pt_prolongation_seconds < 6:
         return 1
     else:
         return 2
@@ -116,12 +109,11 @@ def score_pt_prolongation(pt_prolongation_seconds: float) -> int:
 def score_fibrinogen(fibrinogen: float) -> int:
     """
     Score fibrinogen level in g/L.
-      >1.0 g/L: 0 points
-      ≤1.0 g/L: 1 point
+      ≥1.0 g/L: 0 points
+      <1.0 g/L: 1 point
     """
-    if fibrinogen < 0:
-        raise ValueError(f"Fibrinogen must be non-negative, got {fibrinogen}")
-    if fibrinogen > 1.0:
+    _check_nonnegative_finite(fibrinogen, "Fibrinogen")
+    if fibrinogen >= 1.0:
         return 0
     else:
         return 1
@@ -139,7 +131,7 @@ def calculate_overt_dic_score(
     Args:
         platelets: Platelet count in ×10³/µL
         fibrin_marker: 'no_increase', 'moderate_increase', or 'strong_increase'
-                       (or numeric fold-increase as string)
+                       after lab-validated assay interpretation
         pt_prolongation_seconds: PT prolongation in seconds above normal
         fibrinogen: Fibrinogen level in g/L
 
@@ -156,19 +148,18 @@ def calculate_overt_dic_score(
     if total >= 5:
         interpretation = "Compatible with overt DIC"
         recommendation = (
-            "ISTH score ≥ 5 supports diagnosis of overt DIC. "
-            "Treat underlying cause; consider supportive transfusion if actively bleeding. "
-            "Repeat scoring in 24 hours to monitor trajectory."
+            "Score ≥ 5 is compatible with overt DIC only in a relevant clinical context. "
+            "Assess the underlying cause and repeat laboratory scoring daily as appropriate."
         )
     else:
         interpretation = "Not suggestive of overt DIC"
         recommendation = (
-            "ISTH score < 5 does not support overt DIC diagnosis. "
-            "If clinical suspicion remains, repeat testing in 24-48 hours."
+            "Score < 5 is below the overt-DIC threshold, but does not exclude evolving coagulopathy. "
+            "Interpret with a DIC-associated underlying condition and reassess clinically."
         )
 
     return {
-        "score_type": "ISTH Overt DIC",
+        "score_type": "ISTH Overt DIC (categorical fibrin marker)",
         "platelets": platelets,
         "platelet_score": plt_score,
         "fibrin_marker": fibrin_marker,
@@ -199,7 +190,11 @@ def calculate_non_overt_dic_score(
     d_dimer_trend: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Calculate the ISTH Non-Overt DIC Score (chronic/subclinical DIC).
+    Calculate a legacy exploratory trend score (not a validated ISTH diagnostic score).
+
+    The original ISTH non-overt scoring template is NOT the overt score plus
+    these three trends. Preserve the historic output for backward compatibility
+    while explicitly excluding diagnostic interpretation.
 
     The non-overt scoring adds dynamic components:
       - Rising platelet trend: -1 point (improving)
@@ -269,23 +264,23 @@ def calculate_non_overt_dic_score(
     total = base_total + dynamic_score
 
     if total >= 5:
-        interpretation = "Compatible with non-overt (chronic) DIC"
+        interpretation = "Exploratory trend score ≥5 (not diagnostic of non-overt DIC)"
         recommendation = (
-            "Non-overt DIC score ≥ 5. Treat underlying condition. "
-            "Monitor coagulation parameters closely."
+            "This legacy trend sum is not a validated non-overt DIC algorithm. "
+            "Evaluate the underlying disease and serial coagulation studies."
         )
     elif total >= 2:
-        interpretation = "Suggestive of evolving non-overt DIC"
+        interpretation = "Exploratory evolving pattern (not diagnostic of non-overt DIC)"
         recommendation = (
-            "Score 2-4 suggests possible evolving DIC. "
-            "Repeat testing and monitor trends."
+            "An exploratory trend sum cannot establish non-overt DIC. "
+            "Assess serial laboratory and clinical findings."
         )
     else:
-        interpretation = "Not suggestive of non-overt DIC"
-        recommendation = "Score < 2 does not support DIC diagnosis."
+        interpretation = "Exploratory trend score <2 (not diagnostic of non-overt DIC)"
+        recommendation = "Do not use this exploratory score to rule out DIC."
 
     return {
-        "score_type": "ISTH Non-Overt DIC",
+        "score_type": "Exploratory non-overt DIC trend score (unvalidated)",
         "platelets": platelets,
         "platelet_score": plt_score,
         "fibrin_marker": fibrin_marker,
@@ -300,7 +295,8 @@ def calculate_non_overt_dic_score(
         "total_score": total,
         "max_possible_score": 11,
         "interpretation": interpretation,
-        "dic_suggested": total >= 5,
+        "dic_suggested": False,
+        "validated_diagnostic_score": False,
         "recommendation": recommendation,
     }
 
@@ -325,12 +321,12 @@ def assess_clinical_context(
             "description": "DIC in the setting of sepsis/septic shock",
             "key_considerations": [
                 "Treat underlying infection with appropriate antimicrobials",
-                "Consider activated protein C (if available) in severe sepsis with DIC",
+                "Follow current sepsis guidance; activated protein C (drotrecogin alfa) was withdrawn",
                 "Platelet transfusion if < 10,000 or active bleeding",
                 "Cryoprecipitate if fibrinogen < 100 mg/dL",
                 "Heparin may be considered in thrombotic-predominant DIC",
             ],
-            "mortality_implication": "DIC in sepsis doubles mortality risk",
+            "mortality_implication": "DIC in sepsis is associated with increased mortality; risk varies by cohort",
         },
         "trauma": {
             "description": "DIC in the setting of major trauma (acute traumatic coagulopathy)",
@@ -341,7 +337,7 @@ def assess_clinical_context(
                 "Fibrinogen replacement with cryoprecipitate",
                 "Viscoelastic testing (TEG/ROTEM) to guide therapy",
             ],
-            "mortality_implication": "Trauma-induced coagulopathy associated with 50%+ mortality",
+            "mortality_implication": "Trauma-associated coagulopathy increases risk; prognosis depends on severity",
         },
         "obstetric": {
             "description": "DIC in obstetric emergencies (abruptio placentae, amniotic fluid embolism, PPH)",
@@ -374,7 +370,7 @@ def assess_clinical_context(
                 "DIC typically resolves rapidly with effective antivenom",
                 "Avoid heparin — bleeding is the primary risk",
             ],
-            "mortality_implication": "Prognosis excellent with timely antivenom",
+            "mortality_implication": "Prognosis depends on venom, severity, and time to effective treatment",
         },
     }
 
@@ -399,17 +395,26 @@ def assess_clinical_context(
 # ---------------------------------------------------------------------------
 
 def _validate_safe_path(file_path: str) -> str:
-    """
-    Validate file path to prevent path traversal attacks.
-    Returns the resolved absolute path if safe, raises ValueError otherwise.
+    """Resolve CLI input/output locations without falsely rejecting absolute paths.
+
+    Explicit parent segments are disallowed as a conservative CLI guard.
+    This is not a filesystem sandbox: OS file permissions remain authoritative.
     """
     import pathlib
-    resolved = pathlib.Path(file_path).resolve()
-    # Check for path traversal attempts
-    if ".." in file_path or file_path.startswith("/") or file_path.startswith("\\"):
-        raise ValueError(f"Path traversal detected in: {file_path}")
-    return str(resolved)
+    if not isinstance(file_path, str) or not file_path.strip():
+        raise ValueError("CSV path must be a nonempty string")
+    if ".." in pathlib.PurePath(file_path).parts or (
+        chr(92) in file_path or pathlib.PureWindowsPath(file_path).drive
+    ):
+        raise ValueError(f"Parent traversal or Windows network/drive path not supported: {file_path}")
+    return str(pathlib.Path(file_path).resolve())
 
+
+def _safe_csv_cell(value: Any) -> Any:
+    """Prevent formulas from being executed if results are opened in a spreadsheet."""
+    if isinstance(value, str) and value.lstrip().startswith(("=", "+", "-", "@", "\t", "\r", "\n")):
+        return "'" + value
+    return value
 
 def process_batch(input_csv: str, output_csv: str) -> int:
     """
@@ -420,27 +425,37 @@ def process_batch(input_csv: str, output_csv: str) -> int:
 
     Security: Validates file paths to prevent directory traversal attacks.
     """
-    # Validate input/output paths for security
     input_csv = _validate_safe_path(input_csv)
     output_csv = _validate_safe_path(output_csv)
+    if input_csv == output_csv:
+        raise ValueError("Input and output CSV paths must differ")
 
     with open(input_csv, mode="r", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         fieldnames = list(reader.fieldnames or [])
         rows = list(reader)
 
-    out_fields = fieldnames + [
+    required = {"platelets", "fibrin_marker", "pt_prolongation", "fibrinogen"}
+    missing = required.difference(fieldnames)
+    if missing:
+        raise ValueError(f"Missing required CSV columns: {', '.join(sorted(missing))}")
+
+    out_fields = list(dict.fromkeys(fieldnames + [
         "dic_total_score", "dic_interpretation", "overt_dic", "recommendation",
-    ]
+    ]))
     out_rows = []
 
     for r in rows:
         try:
-            platelets = float(r.get("platelets", 150))
-            fibrin_marker = r.get("fibrin_marker", "no_increase")
-            pt_prolong = float(r.get("pt_prolongation", 0))
-            fibrinogen = float(r.get("fibrinogen", 2.0))
-            score_type = r.get("score_type", "overt").strip().lower()
+            if None in r:
+                raise ValueError("Unexpected extra CSV columns in row")
+            platelets = float(r["platelets"])
+            fibrin_marker = r["fibrin_marker"]
+            pt_prolong = float(r["pt_prolongation"])
+            fibrinogen = float(r["fibrinogen"])
+            score_type = (r.get("score_type") or "overt").strip().lower()
+            if score_type not in {"overt", "non_overt", "non-overt"}:
+                raise ValueError(f"Invalid score_type: {score_type}")
 
             if score_type == "non_overt" or score_type == "non-overt":
                 result = calculate_non_overt_dic_score(
@@ -454,13 +469,13 @@ def process_batch(input_csv: str, output_csv: str) -> int:
                     platelets, fibrin_marker, pt_prolong, fibrinogen,
                 )
 
-            row_dict = dict(r)
+            row_dict = {key: value for key, value in r.items() if key is not None}
             row_dict["dic_total_score"] = result["total_score"]
             row_dict["dic_interpretation"] = result["interpretation"]
             row_dict["overt_dic"] = result.get("overt_dic", result.get("dic_suggested", False))
             row_dict["recommendation"] = result["recommendation"]
-        except (ValueError, KeyError) as e:
-            row_dict = dict(r)
+        except (ValueError, KeyError, TypeError) as e:
+            row_dict = {key: value for key, value in r.items() if key is not None}
             row_dict["dic_total_score"] = f"ERROR: {e}"
             row_dict["dic_interpretation"] = "ERROR"
             row_dict["overt_dic"] = ""
@@ -471,6 +486,6 @@ def process_batch(input_csv: str, output_csv: str) -> int:
     with open(output_csv, mode="w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=out_fields)
         writer.writeheader()
-        writer.writerows(out_rows)
+        writer.writerows({k: _safe_csv_cell(v) for k, v in row.items()} for row in out_rows)
 
     return len(out_rows)

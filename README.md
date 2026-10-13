@@ -1,225 +1,95 @@
-# DIC Istn Overt Score
+# ISTH Overt DIC Score Calculator
 
-> **Domain:** Clinical Decision Support & Biomedical Computing  
-> **Reference Guidelines & Standards:** `Standard Clinical Formulations & ISO/IEC Quality Frameworks`
+A deterministic calculator for the **classic categorical International Society on Thrombosis and Haemostasis (ISTH) overt disseminated intravascular coagulation (DIC) score**. It includes an offline browser interface, a standard-library Python calculator and CSV/CLI tools.
 
-<div align="center">
+> **Clinical scope:** Educational and research use. Apply the overt-DIC score only in patients with a relevant underlying clinical condition. A score is not a standalone diagnosis and a value below 5 does not exclude evolving DIC. This implementation uses the classic categorical fibrin-marker classification; it does **not** implement the numeric D-dimer categories introduced in the 2025 ISTH update.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB.svg?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688.svg?logo=fastapi&logoColor=white)
-![Audit Trail](https://img.shields.io/badge/Audit-HMAC--SHA256_Tamper--Evident-brightgreen.svg)
-![Zero-PHI Guard](https://img.shields.io/badge/Guard-Zero--PHI_Outbound-blue.svg)
-![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)
+## Browser interface
 
-</div>
+The source-controlled site is in [web/index.html](web/index.html). Open that file directly in a modern browser for a fully local calculator, or publish the `web/` directory through the included GitHub Pages workflow.
 
----
+- Requires platelet count (×10⁹/L or ×10³/µL), PT prolongation above the laboratory reference (seconds), fibrinogen (g/L), and an **assay-interpreted** fibrin-marker category.
+- Requires confirmation that an underlying DIC-associated disorder is present.
+- Shows total score (0–8), individual contributions, and a clinical interpretation.
+- Offers a text summary download; no server requests, cookies, browser storage or third-party libraries are used.
 
-## 📖 What It Does
+The browser implementation uses plain JavaScript rather than Python-in-WebAssembly because the algorithm is small, deterministic and can run directly without downloading a Python runtime. The independent Python API remains available for batch analysis.
 
-ISTH DIC (Disseminated Intravascular Coagulation) Score Calculator.
+## Scoring scheme
 
-Implements:
-  - ISTH Overt DIC Score (acute DIC)
-  - ISTH Non-Overt DIC Score (chronic/subclinical DIC)
+| Component | 0 points | 1 point | 2 points | 3 points |
+|---|---|---|---|---|
+| Platelets (×10⁹/L) | ≥100 | 50–<100 | <50 | — |
+| Fibrin-related marker | No increase | — | Moderate increase | Strong increase |
+| PT prolongation (seconds) | <3 | ≥3 to <6 | ≥6 | — |
+| Fibrinogen (g/L) | ≥1 | <1 | — | — |
 
-Overt DIC Scoring System (ISTH):
-  Platelets (×10³/µL):  >100 → 0,  50-100 → 1,  <50 → 2
-  Fibrin marker (D-dimer/FDP):  No increase → 0,  Moderate increase → 2,  Strong increase → 3
-  Prolonged PT (seconds above normal):  <3s → 0,  3-6s → 1,  >6s → 2
-  Fibrinogen (g/L):  >1.0 → 0,  ≤1.0 → 1
+**Total ≥5:** compatible with overt DIC in an appropriate clinical context. **Total <5:** below the threshold; clinical and serial laboratory assessment remains necessary.
 
-  Total ≥ 5: Compatible with overt DIC
-  Total < 5: Not suggestive of overt DIC
+**Fibrin-marker caution:** The older categorical algorithm does not define universal numeric D-dimer/FDP fold thresholds. The Python and browser implementations require a category established by the local laboratory. Values such as `"2.5"` and ambiguous `"positive"` are intentionally rejected.
 
-Non-Overt DIC Scoring (chronic):
-  Uses same parameters plus dynamic changes over time.
+### CLI examples
 
-Clinical contexts: sepsis, trauma, obstetric emergencies, malignancy, snakebite.
-
-Zero-dependency Python stdlib implementation.
-Author: Dr. Abu Suraih Sakhri
-License: MIT
-
----
-
-## ⚙️ Key Capabilities & Algorithmic Modules
-
-### 🔬 Analytical Functions
-
-- **`score_platelets()`**: Score platelet count for ISTH Overt DIC.
-Platelets in ×10³/µL.
-  >100: 0 points
-  50-100: 1 point
-  <50: 2 points
-- **`score_fibrin_marker()`**: Score fibrin degradation marker (D-dimer or FDP).
-Accepts: 'no_increase', 'moderate_increase', 'strong_increase'
-Or numeric fold-increase thresholds:
-  No increase: <2× upper normal
-  Moderate: 2-4× upper normal
-  Strong: >4× upper normal
-- **`score_pt_prolongation()`**: Score PT prolongation (seconds above upper limit of normal).
-  <3s: 0 points
-  3-6s: 1 point
-  >6s: 2 points
-- **`score_fibrinogen()`**: Score fibrinogen level in g/L.
-  >1.0 g/L: 0 points
-  ≤1.0 g/L: 1 point
-- **`calculate_overt_dic_score()`**: Calculate the ISTH Overt DIC Score.
-
-Args:
-    platelets: Platelet count in ×10³/µL
-    fibrin_marker: 'no_increase', 'moderate_increase', or 'strong_increase'
-                   (or numeric fold-increase as string)
-    pt_prolongation_seconds: PT prolongation in seconds above normal
-    fibrinogen: Fibrinogen level in g/L
-
-Returns:
-    Dict with individual scores, total, and interpretation
-
----
-
-## 📐 Mathematical Formulation & Logic
-
-```text
-  Calculate the ISTH Overt DIC Score.
-  plt_score = score_platelets(platelets)
-  fib_marker_score = score_fibrin_marker(fibrin_marker)
-  pt_score = score_pt_prolongation(pt_prolongation_seconds)
-  fg_score = score_fibrinogen(fibrinogen)
-```
-
----
-
-## 💻 CLI Quickstart & Usage
-
-### 1. Calculate Overt DIC Score
-```bash
-python cli.py overt --platelets 80 --fibrin-marker moderate_increase --pt-prolongation 4 --fibrinogen 1.5
-```
-
-### 2. Calculate Non-Overt DIC Score (with trends)
-```bash
-python cli.py non-overt --platelets 90 --fibrin-marker moderate_increase --pt-prolongation 3 --fibrinogen 1.2 --platelet-trend falling
-```
-
-### 3. Get Clinical Context Guidance
-```bash
-python cli.py context --context sepsis --dic-score 6
-```
-
-### 4. Batch Process CSV
-```bash
-python cli.py batch -i input.csv -o results.csv
-```
-
-### 5. Audit Task Evaluation
-```bash
-python cli.py audit --task-id TASK-001
-```
-
-### 6. Query LLM Reasoning Adapter
-```bash
-python cli.py chat "Explain DIC scoring"
-```
-
-### 7. Verify Audit Trail Integrity
-```bash
-python cli.py verify-audit
-```
-
-### Parameter Reference
-- `--platelets`: Specifies input measurement or parameter value.
-- `--fibrin-marker`: Specifies input measurement or parameter value.
-- `--pt-prolongation`: Specifies input measurement or parameter value.
-- `--fibrinogen`: Specifies input measurement or parameter value.
-- `--platelet-trend`: Specifies input measurement or parameter value.
-- `--context`: Specifies input measurement or parameter value.
-- `--dic-score`: Specifies input measurement or parameter value.
-- `--fibrinogen-trend`: Specifies input measurement or parameter value.
-- `--d-dimer-trend`: Specifies input measurement or parameter value.
-- `--input`: Specifies input measurement or parameter value.
-
-### Input Data Schema (Batch CSV)
-
-| Field | Description | Requirement |
-|:------|:------------|:------------|
-| `platelets` | Platelet count (×10³/µL) | Required |
-| `fibrin_marker` | Fibrin marker level: `no_increase`, `moderate_increase`, `strong_increase` (or numeric fold) | Required |
-| `pt_prolongation` | PT prolongation in seconds above normal | Required |
-| `fibrinogen` | Fibrinogen level (g/L) | Required |
-| `score_type` | `overt` or `non_overt` (default: `overt`) | Optional |
-| `platelet_trend` | `rising` or `falling` (for non-overt scoring) | Optional |
-| `fibrinogen_trend` | `rising` or `falling` (for non-overt scoring) | Optional |
-| `d_dimer_trend` | `rising` or `falling` (for non-overt scoring) | Optional |
-
----
-
-## 🛡️ Security & Enterprise Architecture
-
-* **Zero-PHI Outbound Interceptor:** Active regex inspection blocking SSNs, MRNs, phone numbers, emails, DOB patterns, and patient identifiers.
-* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation and state transition. Requires `AUDIT_SECRET_KEY` environment variable (min 16 chars).
-* **Path Traversal Protection:** Batch CSV processing validates file paths to prevent directory traversal attacks.
-* **LLM Reasoning Adapter:** Deterministic mock implementation for clinical decision support queries.
-
-### Environment Variables
-
-| Variable | Required | Description |
-|:---------|:---------|:------------|
-| `AUDIT_SECRET_KEY` | Yes | HMAC secret key for audit trail (min 16 characters) |
-| `MODEL_PROVIDER` | No | LLM provider: `mock`, `ollama`, `claude`, `openai` (default: `mock`) |
-
-**Generate a secure key:**
-```bash
-# Linux/macOS
-export AUDIT_SECRET_KEY=$(openssl rand -hex 32)
-
-# Windows PowerShell
-$env:AUDIT_SECRET_KEY = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 32 | % {[char]$_})
-```
-
----
-
-## 🧪 Testing & Verification
-
-Run the automated test suite:
+The deterministic scoring functions in `dic_istn.py` require no third-party packages. Python 3.10–3.12 is tested.
 
 ```bash
-# Set test environment variable (tests configure this automatically)
-pytest -v
+python cli.py overt --platelets 80 --fibrin-marker moderate_increase --pt-prolongation 4 --fibrinogen 0.9
+python cli.py batch --input sample.csv --output results.csv
 ```
 
-Run specific test modules:
+CSV input requires columns `platelets,fibrin_marker,pt_prolongation,fibrinogen`. The output includes total scores, interpretation and per-row errors. CSV result cells with spreadsheet-formula prefixes are escaped. The input and output paths must be different, and explicit parent-directory path segments are rejected; the CLI is not a filesystem sandbox.
+
+The historical `non-overt` command is preserved for backward compatibility **only as an exploratory trend sum**. It does not implement the published ISTH non-overt DIC diagnostic template, must not be treated as a validated diagnostic score, and should not be used to rule in or rule out DIC. This distinction is also reflected in its output.
+
+Other CLI commands include `context`, `audit`, `chat`, and `verify-audit`. The `chat` command uses a local deterministic **mock**, not a clinical reasoning model or a third-party inference API.
+
+## Development and verification
 
 ```bash
-pytest tests/ -v          # Integration tests (agents, CLI, security)
-pytest test_dic_istn.py -v  # Core scoring algorithm tests
+python -m pip install 'fastapi>=0.111,<1' 'uvicorn>=0.30,<1' 'pydantic>=2,<3' pytest
+export AUDIT_SECRET_KEY="$(openssl rand -hex 32)"
+python -m pytest -v
+node --check web/scoring.js
+node --check web/app.js
+node --test web/scoring.test.cjs
 ```
 
-Execute high-throughput batch simulation benchmarks:
+Python test coverage includes algorithm boundaries, numeric validity, batch input errors, a mock audit workflow, and HMAC integrity checks. The browser scoring test runner uses the Node.js built-in test framework. CI runs under Python 3.10, 3.11 and 3.12.
+
+## Optional REST API
 
 ```bash
-python simulator.py 100
+export AUDIT_SECRET_KEY="$(openssl rand -hex 32)"
+uvicorn agents.api:app --host 127.0.0.1 --port 8000
 ```
 
----
+The optional FastAPI service exposes `/health`, `/metrics`, `/api/audit`, `/api/chat`, and `/api/audit/logs`. This **generic mock audit service is separate from the DIC calculator**; it does not compute the ISTH score. It is not intended for public unauthenticated clinical use.
 
-## 🐳 Container Deployment
+The audit log endpoint requires a separate `AUDIT_READ_TOKEN` environment variable and an `Authorization: Bearer <token>` header. If no read token is configured, that endpoint is disabled. The HMAC key must be at least 16 characters and should be generated cryptographically; audit history is held in process memory rather than persistent storage.
+
+A local Docker configuration is provided:
 
 ```bash
-docker build -t dic-istn-overt-score .
-docker run -e AUDIT_SECRET_KEY=your-secure-key dic-istn-overt-score
+export AUDIT_SECRET_KEY="$(openssl rand -hex 32)"
+docker compose up --build
 ```
 
-With Docker Compose:
+The Compose service listens on `127.0.0.1:8000` and does not ship with a default audit secret.
 
-```bash
-docker-compose up -d
-```
+## Privacy and limitations
 
-**Note:** The default `AUDIT_SECRET_KEY` in Docker is for development only. Override it in production:
+- The **browser calculator** processes user-entered laboratory values locally without transmitting or retaining them. Do not enter patient identifiers.
+- The **Python CSV tool** reads and writes local files. Avoid PHI unless authorized and appropriately protected under institutional policy.
+- The optional mock audit service includes limited regex checks for identifier-like strings, **not comprehensive PHI detection, anonymization or a HIPAA compliance guarantee**.
+- Browser compatibility: current Chromium, Firefox, Safari and Edge supporting standard ES2017 JavaScript APIs. Browser automated rendering tests have not been added; scoring logic has direct Node.js regression tests.
 
-```bash
-docker run -e AUDIT_SECRET_KEY=$(openssl rand -hex 32) dic-istn-overt-score
-```
+## References
+
+1. Taylor FB Jr, Toh CH, Hoots WK, Wada H, Levi M. Towards definition, clinical and laboratory criteria, and a scoring system for disseminated intravascular coagulation. *Thromb Haemost*. 2001;86:1327–1330. [PMID: 11816725](https://pubmed.ncbi.nlm.nih.gov/11816725/).
+2. ISTH overt DIC scoring threshold table, reproduced in [Evaluation of the ISTH scoring system (2022)](https://pmc.ncbi.nlm.nih.gov/articles/PMC9629536/).
+3. [Updated definition and scoring of DIC, ISTH SSC (2025)](https://www.jthjournal.org/article/S1538-7836%2825%2900220-X/fulltext). **The 2025 numeric fibrin marker revision is not implemented in this project.**
+4. [Withdrawal of activated protein C in severe sepsis, NICE (2011)](https://www.nice.org.uk/guidance/ta84).
+
+## License
+
+MIT — see [LICENSE](LICENSE).

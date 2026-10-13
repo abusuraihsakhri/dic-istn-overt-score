@@ -100,8 +100,8 @@ def test_path_traversal_protection():
     with pytest.raises(ValueError):
         _validate_safe_path("../../../etc/passwd")
 
-    with pytest.raises(ValueError):
-        _validate_safe_path("/etc/passwd")
+    # Absolute paths are accepted for the local CLI; permissions govern access.
+    assert _validate_safe_path("/tmp/example.csv") == "/tmp/example.csv"
 
     with pytest.raises(ValueError):
         _validate_safe_path("\\windows\\system32\\config\\sam")
@@ -136,3 +136,27 @@ def test_audit_trail_rejects_short_key():
 
     with pytest.raises(RuntimeError):
         AuditTrail(secret_key="short")
+
+def test_audit_integrity_checks_signatures():
+    from agents.base import AuditTrail
+    audit = AuditTrail(secret_key="test-key-12345678901234567890")
+    audit.log("test", "unit", "FIRST", {"result": "ok"})
+    assert audit.verify_integrity()
+    snapshot = audit.get_trail()
+    snapshot[0]["event_type"] = "EDIT"
+    assert audit.verify_integrity()
+    audit.logs[0]["event_type"] = "EDIT"
+    assert not audit.verify_integrity()
+
+def test_audit_log_api_requires_explicit_access_token(monkeypatch):
+    from agents.api import api_audit_logs
+    from fastapi import HTTPException
+    monkeypatch.delenv("AUDIT_READ_TOKEN", raising=False)
+    with pytest.raises(HTTPException) as exc:
+        api_audit_logs(authorization=None)
+    assert exc.value.status_code == 403
+    monkeypatch.setenv("AUDIT_READ_TOKEN", "test-read-access-token")
+    with pytest.raises(HTTPException):
+        api_audit_logs(authorization="Bearer wrong")
+    result = api_audit_logs(authorization="Bearer test-read-access-token")
+    assert result["verified"] is True
