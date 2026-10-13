@@ -1,10 +1,12 @@
 """
 FastAPI REST API Server for Dic Istn Overt Score.
 """
+import hmac
+import os
 from typing import Dict, Any, List
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from pydantic import BaseModel
-from .base import AuditLogger, PHIGuard
+from .base import AuditLogger, PHIGuard, SecurityException
 from .models import SystemTaskPayload, ConsensusDossier
 from .supervisor import SystemSupervisor
 
@@ -37,8 +39,11 @@ def metrics():
 
 @app.post("/api/audit")
 def api_audit(payload: SystemTaskPayload):
-    dossier = supervisor.process_task(payload)
-    return dossier.to_dict()
+    try:
+        dossier = supervisor.process_task(payload)
+        return dossier.to_dict()
+    except SecurityException:
+        raise HTTPException(status_code=422, detail="Sensitive identifiers detected; supply de-identified values")
 
 
 @app.post("/api/chat")
@@ -46,10 +51,16 @@ def api_chat(req: ChatRequest):
     try:
         ans = supervisor.query_supervisory_chat(req.query)
         return {"response": ans}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except SecurityException:
+        raise HTTPException(status_code=422, detail="Sensitive identifiers detected; supply de-identified values")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid query")
 
 
 @app.get("/api/audit/logs")
-def api_audit_logs():
+def api_audit_logs(authorization: str | None = Header(default=None)):
+    # Audit metadata can be sensitive; never expose it anonymously.
+    expected = os.getenv("AUDIT_READ_TOKEN")
+    if not expected or not authorization or not hmac.compare_digest(authorization, "Bearer " + expected):
+        raise HTTPException(status_code=403, detail="Audit-log access is not configured or not authorized")
     return {"audit_trail": AuditLogger.get_trail(), "verified": AuditLogger.verify_integrity()}
