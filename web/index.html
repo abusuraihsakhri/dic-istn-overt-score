@@ -1,236 +1,84 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dic Istn Overt Score — Operations Console</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg: #090d16;
-            --card: #111827;
-            --border: #1f293d;
-            --accent: #3b82f6;
-            --accent-glow: rgba(59, 130, 246, 0.25);
-            --text: #f3f4f6;
-            --text-muted: #9ca3af;
-            --danger: #ef4444;
-            --warning: #f59e0b;
-            --success: #10b981;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: 'Inter', sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            padding: 2rem;
-            min-height: 100vh;
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 1.5rem;
-            margin-bottom: 2rem;
-        }
-        .header-title h1 { font-size: 1.6rem; font-weight: 700; color: #fff; }
-        .header-title p { color: var(--text-muted); font-size: 0.9rem; margin-top: 0.25rem; }
-        .badge {
-            display: inline-block;
-            padding: 0.3rem 0.8rem;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            background: var(--accent-glow);
-            color: var(--accent);
-            border: 1px solid var(--accent);
-        }
-        .grid {
-            display: grid;
-            grid-template-columns: 1fr 1.2fr;
-            gap: 1.5rem;
-        }
-        .card {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 1.5rem;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-        }
-        .card h2 {
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        .form-group { margin-bottom: 1rem; }
-        label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem; }
-        input, select, textarea {
-            width: 100%;
-            padding: 0.65rem 0.9rem;
-            background: #0d1322;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            color: #fff;
-            font-family: inherit;
-            font-size: 0.9rem;
-        }
-        input:focus, textarea:focus { outline: none; border-color: var(--accent); }
-        .btn {
-            background: var(--accent);
-            color: #fff;
-            border: none;
-            padding: 0.7rem 1.4rem;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: 0.2s;
-            width: 100%;
-        }
-        .btn:hover { background: #2563eb; }
-        .terminal {
-            background: #060911;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1rem;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
-            color: #10b981;
-            height: 380px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-        }
-        .metrics-bar {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-        .metric-box {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1rem;
-            text-align: center;
-        }
-        .metric-val { font-size: 1.4rem; font-weight: 700; color: #fff; margin-top: 0.25rem; }
-        .metric-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="ISTH overt disseminated intravascular coagulation score calculator. Local, private, dependency-free.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'none'; img-src 'self'; object-src 'none'; base-uri 'none'">
+  <title>ISTH Overt DIC Score Calculator</title>
+  <link rel="stylesheet" href="./style.css">
+  <script src="./scoring.js" defer></script>
+  <script src="./app.js" defer></script>
 </head>
 <body>
-
-    <div class="header">
-        <div class="header-title">
-            <h1>Dic Istn Overt Score</h1>
-            <p>Domain: Clinical & Cryptographic AI | Standard: CAP / CLSI / NIST Standards | LabMind-Atlas Architecture</p>
+<main class="container">
+  <header>
+    <div class="kicker">Clinical research utility · Classic categorical ISTH framework</div>
+    <h1>ISTH Overt DIC Score</h1>
+    <p class="lead">Calculate the overt disseminated intravascular coagulation point score using four routine laboratory parameters. All calculations run locally in this browser.</p>
+  </header>
+  <div class="grid">
+    <section class="panel" aria-labelledby="form-title">
+      <h2 id="form-title">Laboratory measurements</h2>
+      <form id="dic-form" novalidate>
+        <div class="checkline">
+          <input type="checkbox" id="underlying" required>
+          <label for="underlying">I confirm an underlying disorder associated with DIC is present.<div class="hint">The ISTH overt-DIC algorithm is intended only for an appropriate clinical context.</div></label>
         </div>
-        <div>
-            <span class="badge">Air-Gapped Active</span>
-            <span class="badge" style="background: rgba(16,185,129,0.2); color: #10b981; border-color: #10b981;">Zero-PHI Guard Active</span>
+        <div class="formfield">
+          <label for="platelets">Platelet count</label>
+          <div class="hint">×10⁹/L (equivalent to ×10³/µL)</div>
+          <input id="platelets" type="number" inputmode="decimal" min="0" step="any" placeholder="e.g., 80" required>
         </div>
-    </div>
-
-    <div class="metrics-bar">
-        <div class="metric-box">
-            <div class="metric-label">System Status</div>
-            <div class="metric-val" style="color: var(--success);" id="m-status">OPTIMAL</div>
+        <div class="formfield">
+          <label for="marker">Fibrin-related marker (D-dimer / FDP)</label>
+          <div class="hint">Select the laboratory's assay-interpreted category; no universal numeric cutoff applies.</div>
+          <select id="marker" required>
+            <option value="" selected>Choose one</option>
+            <option value="no_increase">No increase · 0 points</option>
+            <option value="moderate_increase">Moderate increase · 2 points</option>
+            <option value="strong_increase">Strong increase · 3 points</option>
+          </select>
         </div>
-        <div class="metric-box">
-            <div class="metric-label">Tasks Processed</div>
-            <div class="metric-val" id="m-tasks">142</div>
+        <div class="formfield">
+          <label for="pt">PT prolongation above laboratory reference</label>
+          <div class="hint">Seconds above upper limit of normal, not the absolute PT value</div>
+          <input id="pt" type="number" inputmode="decimal" min="0" step="any" placeholder="e.g., 4" required>
         </div>
-        <div class="metric-box">
-            <div class="metric-label">Audit Blocks Signed</div>
-            <div class="metric-val" id="m-audit">142</div>
+        <div class="formfield">
+          <label for="fibrinogen">Fibrinogen</label>
+          <div class="hint">g/L (1 g/L = 100 mg/dL)</div>
+          <input id="fibrinogen" type="number" inputmode="decimal" min="0" step="any" placeholder="e.g., 1.5" required>
         </div>
-        <div class="metric-box">
-            <div class="metric-label">PHI Interceptions</div>
-            <div class="metric-val" style="color: var(--accent);" id="m-phi">0</div>
-        </div>
-    </div>
-
-    <div class="grid">
-        <div class="card">
-            <h2>⚙️ Dispatch Distributed Component Audit</h2>
-            <div class="form-group">
-                <label>Task / Sample ID</label>
-                <input type="text" id="task_id" value="TASK-2026-LIVE-01">
-            </div>
-            <div class="form-group">
-                <label>Target Identifier</label>
-                <input type="text" id="target_id" value="SPECIMEN-ALPHA-77">
-            </div>
-            <div class="form-group">
-                <label>Primary Measurement / Value</label>
-                <input type="number" id="primary_metric" value="29.4" step="0.1">
-            </div>
-            <div class="form-group">
-                <label>Secondary Metric / Kinetic Index</label>
-                <input type="number" id="secondary_metric" value="14.8" step="0.1">
-            </div>
-            <div class="form-group">
-                <label>Status / Phenotype Descriptor</label>
-                <input type="text" id="status_descriptor" value="DISCORDANT_ANOMALY">
-            </div>
-            <div class="form-group">
-                <label><input type="checkbox" id="is_critical" checked> Trigger Emergency / Critical Flag</label>
-            </div>
-            <button class="btn" onclick="runAudit()">Execute Distributed Component Audit</button>
-        </div>
-
-        <div class="card">
-            <h2>📊 Real-Time Consensus Dossier & Audit Log</h2>
-            <div class="terminal" id="outputConsole">// Dic Istn Overt Score Operations Console Ready
-// Connection established with Air-Gapped Supervisor
-// Cryptographic HMAC-SHA256 audit ledger loaded.
-// Ready for live task payload dispatch...</div>
-        </div>
-    </div>
-
-    <script>
-        async function runAudit() {
-            const consoleEl = document.getElementById('outputConsole');
-            consoleEl.innerText = "// Dispatching task across specialized workers...
-// Invoking InvariantQCWorker, SafetyEscalationWorker, ProtocolWorker...";
-
-            const payload = {
-                task_id: document.getElementById('task_id').value,
-                target_identifier: document.getElementById('target_id').value,
-                primary_metric: parseFloat(document.getElementById('primary_metric').value),
-                secondary_metric: parseFloat(document.getElementById('secondary_metric').value),
-                status_descriptor: document.getElementById('status_descriptor').value,
-                is_critical_flag: document.getElementById('is_critical').checked
-            };
-
-            try {
-                const res = await fetch('/api/audit', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const data = await res.json();
-                consoleEl.innerText = JSON.stringify(data, null, 2);
-                document.getElementById('m-tasks').innerText = parseInt(document.getElementById('m-tasks').innerText) + 1;
-                document.getElementById('m-audit').innerText = parseInt(document.getElementById('m-audit').innerText) + 1;
-            } catch (err) {
-                consoleEl.innerText = "// Offline / Simulation Output:\n" + JSON.stringify({
-                    dossier_id: "DOSSIER-SIM-" + Math.floor(Math.random()*10000),
-                    system: "dic-istn-overt-score",
-                    domain: "Clinical & Cryptographic AI",
-                    task_id: payload.task_id,
-                    overall_urgency: payload.is_critical_flag ? "CRITICAL_STAT_PANIC" : "ELEVATED_RISK",
-                    integrity_status: "DISCORDANT_ANOMALY",
-                    alerts: [
-                        { worker: "InvariantQCWorker", alert: "Primary metric exceeds upper reference bound" },
-                        { worker: "SafetyEscalationWorker", alert: "Critical emergency interlock flag active" }
-                    ],
-                    audit_hash: "HMAC_SHA256_e83f9a72b941d6c381f9"
-                }, null, 2);
-            }
-        }
-    </script>
+        <button type="submit">Calculate overt DIC score</button>
+      </form>
+      <p class="status" id="status" role="status" aria-live="polite">Enter values and confirm the clinical context to calculate.</p>
+    </section>
+    <section class="panel" aria-labelledby="result-title">
+      <h2 id="result-title">Score and interpretation</h2>
+      <div class="empty" id="placeholder">A numeric score and component breakdown will appear after calculation.</div>
+      <div class="result" id="result" hidden>
+        <div class="total" id="score"></div>
+        <div class="interpretation" id="interpretation"></div>
+        <dl class="breakdown">
+          <dt>Platelet count</dt><dd id="point-platelets"></dd>
+          <dt>Fibrin-related marker</dt><dd id="point-fibrinMarker"></dd>
+          <dt>PT prolongation</dt><dd id="point-pt"></dd>
+          <dt>Fibrinogen</dt><dd id="point-fibrinogen"></dd>
+        </dl>
+        <button class="secondary" type="button" id="export" disabled>Save text summary</button>
+      </div>
+      <p class="note"><strong>Score ≥5:</strong> compatible with overt DIC in the correct clinical setting. <strong>Score &lt;5:</strong> below the overt-DIC threshold, but not a rule-out test. Repeat laboratory scoring and clinical assessment may be required.</p>
+      <p class="note">This page implements the classic categorical ISTH overt-DIC framework. The 2025 ISTH update introduces revised numeric fibrin-marker thresholds; it is <strong>not</strong> the implemented algorithm.</p>
+    </section>
+  </div>
+  <div class="refs">
+    <strong>References:</strong>
+    <a href="https://pubmed.ncbi.nlm.nih.gov/11816725/" target="_blank" rel="noopener noreferrer">Taylor et al., Thromb Haemost (2001)</a> ·
+    <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9629536/" target="_blank" rel="noopener noreferrer">ISTH categorical threshold table</a> ·
+    <a href="https://www.jthjournal.org/article/S1538-7836%2825%2900220-X/fulltext" target="_blank" rel="noopener noreferrer">ISTH updated communication (2025)</a>
+  </div>
+  <footer>Educational and research utility only. Not a validated medical device, diagnostic conclusion, or treatment recommendation. No patient identifiers should be entered; form values are not transmitted or stored.</footer>
+</main>
 </body>
 </html>
